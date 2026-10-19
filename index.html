@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sasviru GPT</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-gray-800 p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl font-bold text-cyan-400">🤖 Sasviru GPT</h1>
+        <span class="text-xs bg-cyan-900 text-cyan-300 px-2 py-1 rounded">Online</span>
+    </header>
+
+    <!-- Chat Box -->
+    <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl w-full mx-auto">
+        <!-- Welcome Message -->
+        <div class="flex items-start space-x-2">
+            <div class="bg-cyan-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-xs">GPT</div>
+            <div class="bg-gray-800 p-3 rounded-lg max-w-md text-sm shadow">
+                ආයුබෝවන්! මම Sasviru GPT. මගෙන් ඕනෑම ප්‍රශ්නයක් අසන්න.
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Form -->
+    <div class="bg-gray-800 p-4 shadow-lg">
+        <form id="chat-form" class="max-w-3xl mx-auto flex gap-2">
+            <input 
+                type="text" 
+                id="user-input" 
+                placeholder="පණිවිඩයක් මෙතන ටයිප් කරන්න..." 
+                class="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                required
+            >
+            <button 
+                type="submit" 
+                class="bg-cyan-600 hover:bg-cyan-700 text-white px-6 py-2 rounded-lg font-medium transition"
+            >
+                යවන්න
+            </button>
+        </form>
+    </div>
+
+    <!-- JavaScript Logic with OpenRouter API -->
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+
+        // ඔබේ OpenRouter API Key එක මෙහි ඇතුළත් කර ඇත
+        const API_KEY = "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";
+        
+        // භාවිත කිරීමට අවශ්‍ය AI Model එක (උදාහරණයක් ලෙස Google Gemini Flash හෝ Meta Llama)
+        const MODEL_NAME = "google/gemini-2.5-flash"; 
+
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // User Message Append
+            appendMessage(message, 'user');
+            userInput.value = '';
+
+            // Loading State
+            const loadingId = appendMessage('කරුණාකර රැඳී සිටින්න...', 'ai');
+
+            try {
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${API_KEY}`,
+                        "HTTP-Referer": window.location.origin, // Optional, helps identify your site on OpenRouter
+                        "X-Title": "Sasviru GPT", // Optional
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        "model": MODEL_NAME,
+                        "messages": [
+                            { "role": "user", "content": message }
+                        ]
+                    })
+                });
+
+                const data = await response.json();
+                removeMessage(loadingId);
+
+                if (data.choices && data.choices.length > 0) {
+                    const aiReply = data.choices[0].message.content;
+                    appendMessage(aiReply, 'ai');
+                } else if (data.error) {
+                    appendMessage(`දෝෂයක් සිදු විය: ${data.error.message}`, 'ai');
+                } else {
+                    appendMessage('පිළිතුරක් ලබා ගැනීමට නොහැකි විය.', 'ai');
+                }
+
+            } catch (error) {
+                removeMessage(loadingId);
+                appendMessage('ජාල දෝෂයක් (Network error) සිදු විය. කරුණාකර නැවත උත්සාහ කරන්න.', 'ai');
+            }
+        });
+
+        function appendMessage(text, sender) {
+            const messageId = 'msg-' + Date.now();
+            const isUser = sender === 'user';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.id = messageId;
+            messageDiv.className = `flex items-start space-x-2 ${isUser ? 'justify-end' : ''}`;
+
+            if (isUser) {
+                messageDiv.innerHTML = `
+                    <div class="bg-blue-600 p-3 rounded-lg max-w-md text-sm shadow whitespace-pre-wrap">${text}</div>
+                    <div class="bg-blue-800 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-xs">මම</div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="bg-cyan-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold text-xs">GPT</div>
+                    <div class="bg-gray-800 p-3 rounded-lg max-w-md text-sm shadow whitespace-pre-wrap">${text}</div>
+                `;
+            }
+
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageId;
+        }
+
+        function removeMessage(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+    </script>
+</body>
+</html>
